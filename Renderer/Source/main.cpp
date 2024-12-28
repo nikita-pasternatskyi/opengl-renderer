@@ -1,6 +1,6 @@
-#include "DebugConsole.h"
+#include "Debugging/RendererDebugLog.h"
 #include <glad/glad.h>
-#include "Shader.h"
+#include "Shader/Shader.h"
 #include <GLFW/glfw3.h>
 
 #include <filesystem>
@@ -12,7 +12,8 @@
 #include "Camera/Camera.h"
 
 
-
+void APIENTRY glDebugOutput(GLenum source, GLenum type, unsigned int id, GLenum severity, 
+                            GLsizei length, const char *message, const void *userParam);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -49,16 +50,19 @@ unsigned int indices[] = {  // note that we start from 0!
 
 MainFunction()
 {
-    LOG("Test");
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    #ifndef RELEASE
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+    #endif
 
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Test OpenGL", NULL, NULL);
     if (window == NULL)
     {
-        std::cout << "Failed to create GLFW window" << std::endl;
+        RENDERER_LOG_ERROR("[GLFW]::Failed to create a window!");
         glfwTerminate();
         return -1;
     }
@@ -71,9 +75,21 @@ MainFunction()
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
-        std::cout << "Failed to initialize GLAD" << std::endl;
+        RENDERER_LOG_ERROR("[GLAD]::Failed to intialize glad!");
         return -1;
     }
+
+    #ifndef RELEASE
+    int flags; glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(glDebugOutput, nullptr);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+        OPENGL_RENDERER_LOG("Debugging enabled succesfully!");
+    }
+    #endif
 
     unsigned int VAO;
     glGenVertexArrays(1, &VAO);
@@ -250,4 +266,51 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
+}
+
+void APIENTRY glDebugOutput(GLenum source, 
+                            GLenum type, 
+                            unsigned int id, 
+                            GLenum severity, 
+                            GLsizei length, 
+                            const char *message, 
+                            const void *userParam)
+{
+    // ignore non-significant error/warning codes
+    if(id == 131169 || id == 131185 || id == 131218 || id == 131204) return; 
+
+    OPENGL_RENDERER_LOG("---------------");
+    OPENGL_RENDERER_LOG("Debug message (" << id << "): " <<  message);
+
+    switch (source)
+    {
+        case GL_DEBUG_SOURCE_API:             OPENGL_RENDERER_LOG("[SOURCE]:: API"); break;
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   OPENGL_RENDERER_LOG("[SOURCE]:: Window System"); break;
+        case GL_DEBUG_SOURCE_SHADER_COMPILER: OPENGL_RENDERER_LOG("[SOURCE]:: Shader Compiler"); break;
+        case GL_DEBUG_SOURCE_THIRD_PARTY:     OPENGL_RENDERER_LOG("[SOURCE]:: Third Party"); break;
+        case GL_DEBUG_SOURCE_APPLICATION:     OPENGL_RENDERER_LOG("[SOURCE]:: Application"); break;
+        case GL_DEBUG_SOURCE_OTHER:           OPENGL_RENDERER_LOG("[SOURCE]:: Other"); break;
+    } std::cout << std::endl;
+
+    switch (type)
+    {
+        case GL_DEBUG_TYPE_ERROR:               OPENGL_RENDERER_LOG_ERROR("[TYPE]:: Error"); break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: OPENGL_RENDERER_LOG_WARNING("[TYPE]:: Deprecated Behaviour"); break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  OPENGL_RENDERER_LOG_WARNING("[TYPE]:: Undefined Behaviour"); break; 
+        case GL_DEBUG_TYPE_PORTABILITY:         OPENGL_RENDERER_LOG_WARNING("[TYPE]:: Portability"); break;
+        case GL_DEBUG_TYPE_PERFORMANCE:         OPENGL_RENDERER_LOG_WARNING("[TYPE]:: Performance"); break;
+        case GL_DEBUG_TYPE_MARKER:              OPENGL_RENDERER_LOG_WARNING("[TYPE]:: Marker"); break;
+        case GL_DEBUG_TYPE_PUSH_GROUP:          OPENGL_RENDERER_LOG_WARNING("[TYPE]:: Push Group"); break;
+        case GL_DEBUG_TYPE_POP_GROUP:           OPENGL_RENDERER_LOG_WARNING("[TYPE]:: Pop Group"); break;
+        case GL_DEBUG_TYPE_OTHER:               OPENGL_RENDERER_LOG_WARNING("[TYPE]:: Other"); break;
+    } std::cout << std::endl;
+    
+    switch (severity)
+    {
+        case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
+        case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
+        case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
+    } std::cout << std::endl;
+    std::cout << std::endl;
 }
