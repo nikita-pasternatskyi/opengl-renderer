@@ -1003,3 +1003,12 @@ dkms.conf
 *.uf2
 # Raspberry Pi Pico disassembler file
 *.dis
+
+#vs code 
+.vscode/
+
+# vs studio solution files
+*.sln
+
+*.vcxproj
+*.vcxproj.*
