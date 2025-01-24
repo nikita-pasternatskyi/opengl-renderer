@@ -4,6 +4,10 @@ project "Renderer"
     cppdialect "C++20"
     targetdir "Binaries/%{cfg.buildcfg}"
     staticruntime "off"
+    postbuildcommands 
+    {
+        "{COPYDIR} Resources ../Binaries/" .. OutputDir .. "/%{prj.name}/Resources/",
+    }
 
     files {"Source/**.cpp", "Source/**.hpp", "Source/**.c", "Source/**.h"}
 
